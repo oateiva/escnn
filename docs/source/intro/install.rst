@@ -4,3 +4,6 @@ pip install joblib
 pip install git+https://github.com/fujiisoup/py3nj  
 if it gives error:
 Download and install fortran https://github.com/LKedward/quickstart-fortran/releases
+restart pc
+and 
+pip install py3nj
