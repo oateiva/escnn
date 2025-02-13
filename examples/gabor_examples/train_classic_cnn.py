@@ -11,10 +11,11 @@ MAX_EPOCHS = 100
 
 # Initialize dataset and datamodule
 data_module = GaborDataModule(
+    dataset_path="C:\\Users\\oat\\Datasets\\gabor_data",
+    train_val_set="C4_Z2_100",
+    test_set="C8_Z2_150",
     batch_size=BATCH_SIZE,
     train_ratio=0.7,
-    csv_file="C:\\Users\\oat\\Datasets\\gabor_data\\C8_Z2_150\\description.csv",
-    image_dir="C:\\Users\\oat\\Datasets\\gabor_data\\C8_Z2_150",
     )
 
 # Initialize model
