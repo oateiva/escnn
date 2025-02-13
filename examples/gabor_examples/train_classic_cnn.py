@@ -5,16 +5,16 @@ from data.gabor_data.src.gabor_dataset_loader import GaborDataModule
 from pytorch_lightning.loggers import CometLogger
 
 # Define hyperparameters
-BATCH_SIZE = 1
+BATCH_SIZE = 32
 LEARNING_RATE = 1e-3
-MAX_EPOCHS = 20
+MAX_EPOCHS = 100
 
 # Initialize dataset and datamodule
 data_module = GaborDataModule(
     batch_size=BATCH_SIZE,
     train_ratio=0.7,
-    csv_file="C:\\Users\\oat\\Datasets\\gabor_data\\C8_Z2_5\\description.csv",
-    image_dir="C:\\Users\\oat\\Datasets\\gabor_data\\C8_Z2_5",
+    csv_file="C:\\Users\\oat\\Datasets\\gabor_data\\C8_Z2_150\\description.csv",
+    image_dir="C:\\Users\\oat\\Datasets\\gabor_data\\C8_Z2_150",
     )
 
 # Initialize model

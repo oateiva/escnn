@@ -69,21 +69,29 @@ class CNNLightning(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = batch
         logits = self(x)
-        loss = torch.nn.functional.mse_loss(logits, y.float())
-        self.log('train_loss', loss)
-        return loss
+        rot_loss = torch.nn.functional.mse_loss(logits[0], y[0])
+        shift_loss = torch.nn.functional.mse_loss(logits[1:], y[1:])
+        self.log('train_rot_loss', rot_loss)
+        self.log('train_shift_loss', shift_loss)
+        return rot_loss + shift_loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
         logits = self(x)
-        loss = torch.nn.functional.mse_loss(logits, y.float())
-        self.log('val_loss', loss, prog_bar=True)
+        rot_loss = torch.nn.functional.mse_loss(logits[0], y[0])
+        shift_loss = torch.nn.functional.mse_loss(logits[1:], y[1:])
+        self.log('val_rot_loss', rot_loss)
+        self.log('val_shift_loss', shift_loss)
+        return rot_loss + shift_loss
 
     def test_step(self, batch, batch_idx):
         x, y = batch
         logits = self(x)
-        loss = torch.nn.functional.mse_loss(logits, y.float())
-        self.log('test_loss', loss)
+        rot_loss = torch.nn.functional.mse_loss(logits[0], y[0])
+        shift_loss = torch.nn.functional.mse_loss(logits[1:], y[1:])
+        self.log('test_rot_loss', rot_loss)
+        self.log('test_shift_loss', shift_loss)
+        return rot_loss + shift_loss
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.lr)
