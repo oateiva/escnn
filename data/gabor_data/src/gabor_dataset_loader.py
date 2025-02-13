@@ -7,6 +7,7 @@ import os
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader, random_split
 
+
 class GaborDataset(Dataset):
     def __init__(self, csv_file, image_dir, transform=None):
         """
@@ -30,8 +31,11 @@ class GaborDataset(Dataset):
 
         # Load labels (orientations and shifts)
         labels = self.data.iloc[idx, 1:].astype('float32').values
-        labels[0] = torch.tensor(labels[0] * (torch.pi / 180.0), dtype=torch.float32)  # Convert degrees to radians
+        theta_rad = torch.tensor(labels[0] * (torch.pi / 180.0), dtype=torch.float32)
+        cos_sin = torch.tensor([torch.cos(theta_rad), torch.sin(theta_rad)], dtype=torch.float32)
         labels = torch.tensor(labels, dtype=torch.float32)
+        shifts = labels[1:].clone().detach().float()
+        labels = torch.cat((cos_sin, shifts), dim=0)
 
         # Apply transformations
         if self.transform:
@@ -84,8 +88,8 @@ class GaborDataModule(pl.LightningDataModule):
 # Initialize DataModule
 data_module = GaborDataModule(
     dataset_path="C:\\Users\\oat\\Datasets\\gabor_data",
-    train_val_set="C4",
-    test_set="C4",
+    train_val_set="C8_Z2_5",
+    test_set="C8_Z2_5",
     train_ratio=0.8,
     batch_size=1
 )

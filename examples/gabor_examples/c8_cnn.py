@@ -6,9 +6,10 @@ from escnn import nn
 
 class C8SteerableCNNLightning(pl.LightningModule):
 
-    def __init__(self, n_classes=2, lr=1e-3):
+    def __init__(self, n_classes=2, lr=1e-3, weight_decay=1e-5):
         super(C8SteerableCNNLightning, self).__init__()
         self.lr = lr
+        self.weight_decay = weight_decay
 
         # the model is equivariant under rotations by 45 degrees,
         # modeled by C8
@@ -20,24 +21,25 @@ class C8SteerableCNNLightning(pl.LightningModule):
         self.input_type = in_type
 
         # Define convolutional blocks
-        self.block1, in_type = self._conv_block(in_type, 24, 7, 1)
-        self.block2, in_type = self._conv_block(in_type, 48, 5, 2)
+        self.block1, in_type = self._conv_block(in_type, 12, 7, 1)
+        self.block2, in_type = self._conv_block(in_type, 24, 5, 2)
         self.pool1 = nn.SequentialModule(
             nn.PointwiseAvgPoolAntialiased(in_type, sigma=0.66, stride=2)
         )
 
-        self.block3, in_type = self._conv_block(in_type, 48, 5, 2)
-        self.block4, in_type = self._conv_block(in_type, 96, 5, 2)
+        self.block3, in_type = self._conv_block(in_type, 24, 5, 2)
+        self.block4, in_type = self._conv_block(in_type, 48, 5, 2)
         self.pool2 = nn.SequentialModule(
             nn.PointwiseAvgPoolAntialiased(in_type, sigma=0.66, stride=2)
         )
 
-        self.block5, in_type = self._conv_block(in_type, 96, 5, 2)
-        self.block6, in_type = self._conv_block(in_type, 64, 5, 1)
+        self.block5, in_type = self._conv_block(in_type, 48, 5, 2)
+        self.block6, in_type = self._conv_block(in_type, 32, 5, 1)
 
         self.pool3 = nn.PointwiseAvgPoolAntialiased(in_type, sigma=0.66, stride=1, padding=0)
 
         self.final_conv = nn.R2Conv(in_type, nn.FieldType(self.r2_act, 4 * [self.r2_act.trivial_repr]), kernel_size=1)
+        self.dropout = nn.PointwiseDropout(in_type, p=0.5)
 
         self.save_hyperparameters()
 
@@ -115,4 +117,7 @@ class C8SteerableCNNLightning(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.lr)
+        return torch.optim.Adam(self.parameters(),
+                                lr=self.lr,
+                                weight_decay=self.weight_decay
+                                )

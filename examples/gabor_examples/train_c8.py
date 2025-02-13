@@ -3,6 +3,7 @@ import pytorch_lightning as pl
 from c8_cnn import C8SteerableCNNLightning
 from data.gabor_data.src.gabor_dataset_loader import GaborDataModule
 from pytorch_lightning.loggers import CometLogger
+from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 
 # Define hyperparameters
 BATCH_SIZE = 32
@@ -41,7 +42,9 @@ hyperparams = {
 comet_logger.log_hyperparams(hyperparams)
 
 # Trainer setup
+early_stop = EarlyStopping(monitor="val_loss", patience=5, mode="min")
 trainer = pl.Trainer(
+        callbacks=[early_stop],
         max_epochs=MAX_EPOCHS,
         logger=comet_logger,
 )

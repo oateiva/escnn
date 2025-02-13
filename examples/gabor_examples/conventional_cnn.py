@@ -5,9 +5,10 @@ import torch.nn.functional as F
 
 class CNNLightning(pl.LightningModule):
 
-    def __init__(self, n_classes=2, lr=1e-3):
+    def __init__(self, n_classes=2, lr=1e-3, weight_decay=1e-5):
         super(CNNLightning, self).__init__()
         self.lr = lr
+        self.weight_decay = weight_decay
 
         self.conv1 = torch.nn.Sequential(
             torch.nn.Conv2d(1, 24, kernel_size=7, padding=1, bias=False),
@@ -116,4 +117,7 @@ class CNNLightning(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.lr)
+        return torch.optim.Adam(self.parameters(),
+                                lr=self.lr,
+                                weight_decay=self.weight_decay
+                                )
