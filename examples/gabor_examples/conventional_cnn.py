@@ -49,7 +49,7 @@ class CNNLightning(pl.LightningModule):
         )
 
         self.final_conv = torch.nn.Sequential(
-            torch.nn.Conv2d(64, 3, kernel_size=1),
+            torch.nn.Conv2d(64, 4, kernel_size=1),
             torch.nn.AdaptiveAvgPool2d((1, 1))
         )
 
@@ -64,34 +64,56 @@ class CNNLightning(pl.LightningModule):
         x = self.conv5(x)
         x = self.conv6(x)
         x = self.final_conv(x)
-        return x.squeeze(2).squeeze(2)
+        x = x.squeeze(2).squeeze(2)
+        # Normalize first two outputs (cos thetha, sin theta)
+        x = torch.cat([torch.nn.functional.normalize(x[:, :2], dim=1), x[:, 2:]], dim=1)
+        return x
 
     def training_step(self, batch, batch_idx):
         x, y = batch
         logits = self(x)
-        rot_loss = torch.nn.functional.mse_loss(logits[0], y[0])
-        shift_loss = torch.nn.functional.mse_loss(logits[1:], y[1:])
+        # Cosine similarity loss: 1 - cos(angle difference)
+        rot_loss = 1 - torch.nn.functional.cosine_similarity(
+            logits[:, :2],
+            y[:, :2],
+            dim=-1).mean()
+        shift_loss = torch.nn.functional.mse_loss(logits[:, 2:], y[:, 2:])
         self.log('train_rot_loss', rot_loss)
         self.log('train_shift_loss', shift_loss)
-        return rot_loss + shift_loss
+
+        loss = rot_loss*10 + shift_loss
+        self.log('train_loss', loss)
+        return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
         logits = self(x)
-        rot_loss = torch.nn.functional.mse_loss(logits[0], y[0])
-        shift_loss = torch.nn.functional.mse_loss(logits[1:], y[1:])
+        rot_loss = 1 - torch.nn.functional.cosine_similarity(
+            logits[:, :2],
+            y[:, :2],
+            dim=-1).mean()
+        shift_loss = torch.nn.functional.mse_loss(logits[:, 2:], y[:, 2:])
         self.log('val_rot_loss', rot_loss)
         self.log('val_shift_loss', shift_loss)
-        return rot_loss + shift_loss
+
+        loss = rot_loss*10 + shift_loss
+        self.log('val_loss', loss)
+        return loss
 
     def test_step(self, batch, batch_idx):
         x, y = batch
         logits = self(x)
-        rot_loss = torch.nn.functional.mse_loss(logits[0], y[0])
-        shift_loss = torch.nn.functional.mse_loss(logits[1:], y[1:])
+        rot_loss = 1 - torch.nn.functional.cosine_similarity(
+            logits[:, :2],
+            y[:, :2],
+            dim=-1).mean()
+        shift_loss = torch.nn.functional.mse_loss(logits[:, 2:], y[:, 2:])
         self.log('test_rot_loss', rot_loss)
         self.log('test_shift_loss', shift_loss)
-        return rot_loss + shift_loss
+
+        loss = rot_loss*10 + shift_loss
+        self.log('test_loss', loss)
+        return loss
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.lr)
