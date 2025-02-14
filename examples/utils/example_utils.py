@@ -1,4 +1,5 @@
 import os
+import torch
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
@@ -87,3 +88,67 @@ def plot_multiple_3d_tensors(tensors,
     fig.set_size_inches(fig_size[0] * num_tensors, fig_size[1])
     fig.suptitle(title, fontsize=16)
     plt.show(block=False)
+
+
+# ---------- SE(2) Functions ---------- #
+
+def se2_matrix(cos_theta, sin_theta, x, y):
+    """
+    Convert rotation angle θ and translation (x, y) to SE(2) matrix for batch data.
+
+    Args:
+        cos_theta (torch.Tensor): Cosine of rotation angles (B,)
+        sin_theta (torch.Tensor): Sine of rotation angles (B,)
+        x (torch.Tensor): Translation in x direction (B,)
+        y (torch.Tensor): Translation in y direction (B,)
+
+    Returns:
+        torch.Tensor: SE(2) transformation matrices (B, 3, 3)
+    """
+    B = cos_theta.size(0)
+    T = torch.zeros((B, 3, 3), dtype=cos_theta.dtype, device=cos_theta.device)
+
+    T[:, 0, 0] = cos_theta
+    T[:, 0, 1] = -sin_theta
+    T[:, 0, 2] = x
+    T[:, 1, 0] = sin_theta
+    T[:, 1, 1] = cos_theta
+    T[:, 1, 2] = y
+    T[:, 2, 2] = 1.0
+
+    return T
+
+
+def se2_geodesic_loss(T_pred, T_true):
+    # Extract rotation matrices (top-left 2×2 block)
+    R_pred = T_pred[:, :2, :2]
+    R_true = T_true[:, :2, :2]
+
+    # Compute rotation geodesic distance: d_R = arccos((trace(R_true^T R_pred) - 1) / 2)
+    trace_term = torch.einsum('bij,bij->b', R_true, R_pred)  # batch-wise trace
+    trace_term = torch.clamp((trace_term - 1) / 2, -1.0, 1.0)  # Ensure valid acos input
+    d_R = torch.acos(trace_term).mean()
+
+    # Compute translation distance: d_T = || t_true - t_pred ||
+    t_pred = T_pred[:, :2, 2]  # Extract translation vector (B, 2)
+    t_true = T_true[:, :2, 2]  # Extract translation vector (B, 2)
+    d_T = torch.norm(t_pred - t_true, dim=1).mean()
+
+    return d_T, d_R
+
+import torch
+
+def se2_chordal_loss(T_pred, T_true):
+
+    # Compute Frobenius norm of the difference between SE(2) matrices
+    frobenius_loss = torch.norm(T_pred - T_true, p='fro', dim=(1, 2)).mean()
+
+    # Extract translation vectors (B, 2)
+    t_pred = T_pred[:, :2, 2]
+    t_true = T_true[:, :2, 2]
+
+    # Compute translation L2 distance
+    translation_loss = torch.norm(t_pred - t_true, dim=1).mean()
+
+    # Combine weighted losses
+    return frobenius_loss, translation_loss

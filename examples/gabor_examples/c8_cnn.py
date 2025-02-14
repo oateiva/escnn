@@ -2,6 +2,7 @@ import torch
 import pytorch_lightning as pl
 from escnn import gspaces
 from escnn import nn
+from examples.utils.example_utils import se2_matrix, se2_chordal_loss
 
 
 class C8SteerableCNNLightning(pl.LightningModule):
@@ -21,24 +22,24 @@ class C8SteerableCNNLightning(pl.LightningModule):
         self.input_type = in_type
 
         # Define convolutional blocks
-        self.block1, in_type = self._conv_block(in_type, 12, 7, 1)
+        self.block1, in_type = self._conv_block(in_type, 12, 7, 2)
         self.block2, in_type = self._conv_block(in_type, 24, 5, 2)
         self.pool1 = nn.SequentialModule(
             nn.PointwiseAvgPoolAntialiased(in_type, sigma=0.66, stride=2)
         )
 
-        self.block3, in_type = self._conv_block(in_type, 24, 5, 2)
-        self.block4, in_type = self._conv_block(in_type, 48, 5, 2)
-        self.pool2 = nn.SequentialModule(
-            nn.PointwiseAvgPoolAntialiased(in_type, sigma=0.66, stride=2)
-        )
+        # self.block3, in_type = self._conv_block(in_type, 24, 5, 2)
+        # self.block4, in_type = self._conv_block(in_type, 48, 5, 2)
+        # self.pool2 = nn.SequentialModule(
+        #     nn.PointwiseAvgPoolAntialiased(in_type, sigma=0.66, stride=2)
+        # )
 
         self.block5, in_type = self._conv_block(in_type, 48, 5, 2)
         self.block6, in_type = self._conv_block(in_type, 32, 5, 1)
 
-        self.pool3 = nn.PointwiseAvgPoolAntialiased(in_type, sigma=0.66, stride=1, padding=0)
+        self.pool3 = nn.PointwiseAvgPoolAntialiased(in_type, sigma=0.66, stride=2, padding=0)
 
-        self.final_conv = nn.R2Conv(in_type, nn.FieldType(self.r2_act, 4 * [self.r2_act.trivial_repr]), kernel_size=1)
+        self.final_conv = nn.R2Conv(in_type, nn.FieldType(self.r2_act, 4 * [self.r2_act.trivial_repr]), kernel_size=3, stride=2)
         self.dropout = nn.PointwiseDropout(in_type, p=0.5)
 
         self.save_hyperparameters()
@@ -57,9 +58,9 @@ class C8SteerableCNNLightning(pl.LightningModule):
         x = self.block1(x)
         x = self.block2(x)
         x = self.pool1(x)
-        x = self.block3(x)
-        x = self.block4(x)
-        x = self.pool2(x)
+        # x = self.block3(x)
+        # x = self.block4(x)
+        # x = self.pool2(x)
         x = self.block5(x)
         x = self.block6(x)
         x = self.pool3(x)
@@ -73,12 +74,11 @@ class C8SteerableCNNLightning(pl.LightningModule):
         x, y = batch
         logits = self(x)
 
-        # Cosine similarity loss: 1 - cos(angle difference)
-        rot_loss = 1 - torch.nn.functional.cosine_similarity(
-            logits[:, :2],
-            y[:, :2],
-            dim=-1).mean()
-        shift_loss = torch.nn.functional.mse_loss(logits[:, 2:], y[:, 2:])
+        T_pred = se2_matrix(logits[:, 0], logits[:, 1], logits[:, 2], logits[:, 3])
+        T_target = se2_matrix(y[:, 0], y[:, 1], y[:, 2], y[:, 3])
+
+        rot_loss, shift_loss = se2_chordal_loss(T_pred, T_target)
+
         self.log('train_rot_loss', rot_loss)
         self.log('train_shift_loss', shift_loss)
 
@@ -89,11 +89,11 @@ class C8SteerableCNNLightning(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         x, y = batch
         logits = self(x)
-        rot_loss = 1 - torch.nn.functional.cosine_similarity(
-            logits[:, :2],
-            y[:, :2],
-            dim=-1).mean()
-        shift_loss = torch.nn.functional.mse_loss(logits[:, 2:], y[:, 2:])
+        T_pred = se2_matrix(logits[:, 0], logits[:, 1], logits[:, 2], logits[:, 3])
+        T_target = se2_matrix(y[:, 0], y[:, 1], y[:, 2], y[:, 3])
+
+        rot_loss, shift_loss = se2_chordal_loss(T_pred, T_target)
+
         self.log('val_rot_loss', rot_loss)
         self.log('val_shift_loss', shift_loss)
 
@@ -104,11 +104,11 @@ class C8SteerableCNNLightning(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         x, y = batch
         logits = self(x)
-        rot_loss = 1 - torch.nn.functional.cosine_similarity(
-            logits[:, :2],
-            y[:, :2],
-            dim=-1).mean()
-        shift_loss = torch.nn.functional.mse_loss(logits[:, 2:], y[:, 2:])
+        T_pred = se2_matrix(logits[:, 0], logits[:, 1], logits[:, 2], logits[:, 3])
+        T_target = se2_matrix(y[:, 0], y[:, 1], y[:, 2], y[:, 3])
+
+        rot_loss, shift_loss = se2_chordal_loss(T_pred, T_target)
+
         self.log('test_rot_loss', rot_loss)
         self.log('test_shift_loss', shift_loss)
 
