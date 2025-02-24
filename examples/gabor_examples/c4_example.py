@@ -11,7 +11,7 @@ np.set_printoptions(precision=3, linewidth=10000, suppress=True)
 
 ### ---------- Equivariance Testing Functions ---------- ###
 
-def check_equivariance_rotation(c4_conv, feat_type_in_c4, x_c4, y_c4, r2_c4_act):
+def c4_check_equivariance_rotation(c4_conv, feat_type_in_c4, x_c4, y_c4, r2_c4_act):
     """ Tests equivariance by rotating inputs and checking output consistency. """
     for g in r2_c4_act.testing_elements:
         print(f"Testing rotation: {g}")
@@ -33,7 +33,7 @@ def check_equivariance_rotation(c4_conv, feat_type_in_c4, x_c4, y_c4, r2_c4_act)
             print(f"C4 Equivariance test failed for rotation {g}: {e}")
 
 
-def check_equivariance_classic_cnn(shift_conv, feat_type_in_shift, x_shift, y_shift):
+def cnn_check_equivariance_rotation(shift_conv, feat_type_in_shift, x_shift, y_shift):
     """ Tests equivariance for a classic CNN using torchvision rotations. """
     for g in [0, 90, 180, 270]:
         print(f"Testing shift rotation: {g}")
@@ -73,13 +73,19 @@ def main():
 
     # Define C4 features and layers
     feat_type_in_c4 = nn.FieldType(r2_c4_act, [r2_c4_act.trivial_repr])
-    feat_type_out_c4 = nn.FieldType(r2_c4_act, 3 * [r2_c4_act.regular_repr])
+    feat_type_out_c4 = nn.FieldType(r2_c4_act, 1 * [r2_c4_act.regular_repr])
     c4_conv = nn.R2Conv(feat_type_in_c4, feat_type_out_c4, kernel_size=3)
 
     # Define classic CNN features and layers
     feat_type_in_shift = nn.FieldType(r2_shift_act, [r2_shift_act.trivial_repr])
-    feat_type_out_shift = nn.FieldType(r2_shift_act, 3 * [r2_shift_act.regular_repr])
+    feat_type_out_shift = nn.FieldType(r2_shift_act, 1 * [r2_shift_act.regular_repr])
     shift_conv = nn.R2Conv(feat_type_in_shift, feat_type_out_shift, kernel_size=3)
+    # torch_conv = torch.nn.Conv2d(1, 1, kernel_size=3, padding=1)
+    sobel_kernel = torch.tensor([[1., 0., -1.],
+                                [2., 0., -2.],
+                                [1., 0., -1.]], dtype=torch.float32)
+    sobel_kernel = sobel_kernel.view(1, 1, 3, 3)
+    shift_conv.filter.data = sobel_kernel
 
     # Create input tensors
     img_tensor = torch.tensor(img, dtype=torch.float).unsqueeze(0).unsqueeze(0)
@@ -90,6 +96,16 @@ def main():
     y_c4 = c4_conv(x_c4)
     y_shift = shift_conv(x_shift)
 
+    y_c4_max = y_c4.tensor.max()
+    y_shift_max = y_shift.tensor.max()
+    print(f"Max value in C4 output: {y_c4_max}")
+    print(f"Max value in CNN output: {y_shift_max}")
+
+    y_c4_min = y_c4.tensor.min()
+    y_shift_min = y_shift.tensor.min()
+    print(f"Min value in C4 output: {y_c4_min}")
+    print(f"Min value in CNN output: {y_shift_min}")
+
     # Visualize results
     plot_multiple_3d_tensors(
         [img_tensor.unsqueeze(0).squeeze(0), y_c4.tensor, y_shift.tensor],
@@ -98,8 +114,8 @@ def main():
         title="Output tensors",
     )
 
-    check_equivariance_rotation(c4_conv, feat_type_in_c4, x_c4, y_c4, r2_c4_act)
-    check_equivariance_classic_cnn(shift_conv, feat_type_in_shift, x_shift, y_shift)
+    c4_check_equivariance_rotation(c4_conv, feat_type_in_c4, x_c4, y_c4, r2_c4_act)
+    cnn_check_equivariance_rotation(shift_conv, feat_type_in_shift, x_shift, y_shift)
 
     # hold plots
     input("Press Enter to continue...")
