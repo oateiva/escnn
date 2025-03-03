@@ -10,7 +10,7 @@ from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 BATCH_SIZE = 8  # 64/8
 LEARNING_RATE = 1e-3
 MAX_EPOCHS = 50
-train_val_set = "C8_Z2_128"
+train_val_set = "C4_Z2_128"
 test_set = "C8_Z2_150"
 
 # Initialize dataset and datamodule
@@ -38,7 +38,8 @@ hyperparams = {
         "learning_rate": LEARNING_RATE,
         "max_epochs": MAX_EPOCHS,
         "train_val_set": train_val_set,
-        "test_set": test_set
+        "test_set": test_set,
+        "patch": "smile"
 }
 comet_logger.log_hyperparams(hyperparams)
 

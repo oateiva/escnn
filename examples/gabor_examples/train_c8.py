@@ -5,12 +5,15 @@ from data.gabor_data.src.gabor_dataset_loader import GaborDataModule
 from pytorch_lightning.loggers import CometLogger
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 
+from examples.utils.example_utils import plot_predictions
+from pathlib import Path
+
 # Define hyperparameters
 BATCH_SIZE = 32
 LEARNING_RATE = 1e-4
-MAX_EPOCHS = 50
+MAX_EPOCHS = 200
 train_val_set = "C8_Z2_128"
-test_set = "C8_Z2_150"
+test_set = "C16_Z2_150"
 
 # Initialize dataset and datamodule
 data_module = GaborDataModule(
@@ -23,6 +26,7 @@ data_module = GaborDataModule(
 
 # Initialize model
 model = C8SteerableCNNLightning(lr=LEARNING_RATE)
+
 
 # Logger
 comet_logger = CometLogger(
@@ -37,9 +41,12 @@ hyperparams = {
         "learning_rate": LEARNING_RATE,
         "max_epochs": MAX_EPOCHS,
         "train_val_set": train_val_set,
-        "test_set": test_set
+        "test_set": test_set,
+        "patch": "smile"
 }
 comet_logger.log_hyperparams(hyperparams)
+script_path = Path(__file__).resolve().parent / "c8_cnn.py"
+comet_logger.experiment.log_code(file_name=str(script_path))
 
 # Trainer setup
 early_stop = EarlyStopping(monitor="val_loss", patience=5, mode="min")
