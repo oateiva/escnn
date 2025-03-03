@@ -38,11 +38,11 @@ def cnn_check_equivariance_rotation(shift_conv, feat_type_in_shift, x_shift, y_s
     for g in [0, 90, 180, 270]:
         print(f"Testing shift rotation: {g}")
         x_transformed = torchvision.transforms.functional.rotate(x_shift.tensor, g)
-        y_from_x_transformed = shift_conv(feat_type_in_shift(x_transformed))
-        y_transformed_from_x = torchvision.transforms.functional.rotate(y_shift.tensor, g)
+        y_from_x_transformed = shift_conv(x_transformed)
+        y_transformed_from_x = torchvision.transforms.functional.rotate(y_shift, g)
 
         plot_multiple_3d_tensors(
-            [x_transformed, y_from_x_transformed.tensor, y_transformed_from_x],
+            [x_transformed, y_from_x_transformed, y_transformed_from_x],
             aspect_ratio=[1, 2, 2],
             titles=["x_transformed", "y_from_x_transformed", "y_transformed_from_x"],
             title=f"Classic CNN Equivariance Test, rotation: {g}",
@@ -50,7 +50,7 @@ def cnn_check_equivariance_rotation(shift_conv, feat_type_in_shift, x_shift, y_s
         )
 
         try:
-            assert torch.allclose(y_from_x_transformed.tensor, y_transformed_from_x, atol=1e-5), g
+            assert torch.allclose(y_from_x_transformed, y_transformed_from_x, atol=1e-5), g
         except AssertionError as e:
             print(f"CNN Equivariance test failed for rotation {g}: {e}")
 
@@ -79,13 +79,13 @@ def main():
     # Define classic CNN features and layers
     feat_type_in_shift = nn.FieldType(r2_shift_act, [r2_shift_act.trivial_repr])
     feat_type_out_shift = nn.FieldType(r2_shift_act, 1 * [r2_shift_act.regular_repr])
-    shift_conv = nn.R2Conv(feat_type_in_shift, feat_type_out_shift, kernel_size=3)
-    # torch_conv = torch.nn.Conv2d(1, 1, kernel_size=3, padding=1)
+    # shift_conv = nn.R2Conv(feat_type_in_shift, feat_type_out_shift, kernel_size=3)
+    shift_conv = torch.nn.Conv2d(1, 1, kernel_size=3, padding=1)
     sobel_kernel = torch.tensor([[1., 0., -1.],
                                 [2., 0., -2.],
                                 [1., 0., -1.]], dtype=torch.float32)
     sobel_kernel = sobel_kernel.view(1, 1, 3, 3)
-    shift_conv.filter.data = sobel_kernel
+    shift_conv.weight.data = sobel_kernel
 
     # Create input tensors
     img_tensor = torch.tensor(img, dtype=torch.float).unsqueeze(0).unsqueeze(0)
@@ -94,21 +94,11 @@ def main():
 
     # Forward pass
     y_c4 = c4_conv(x_c4)
-    y_shift = shift_conv(x_shift)
-
-    y_c4_max = y_c4.tensor.max()
-    y_shift_max = y_shift.tensor.max()
-    print(f"Max value in C4 output: {y_c4_max}")
-    print(f"Max value in CNN output: {y_shift_max}")
-
-    y_c4_min = y_c4.tensor.min()
-    y_shift_min = y_shift.tensor.min()
-    print(f"Min value in C4 output: {y_c4_min}")
-    print(f"Min value in CNN output: {y_shift_min}")
+    y_shift = shift_conv(x_shift.tensor)
 
     # Visualize results
     plot_multiple_3d_tensors(
-        [img_tensor.unsqueeze(0).squeeze(0), y_c4.tensor, y_shift.tensor],
+        [img_tensor.unsqueeze(0).squeeze(0), y_c4.tensor, y_shift],
         aspect_ratio=[1, 2, 2],
         titles=["Input", "Output tensor for C4", "Output tensor classic CNN"],
         title="Output tensors",
